@@ -43,10 +43,11 @@ func splitVideo(inputPath, outputPath, probePath string, chunkDuration int) erro
 	if err != nil {
 		return err
 	}
-	fmt.Println(duration)
+	fmt.Printf("Video duration: %f\n", duration)
 	// Calculate the number of chunks
 	numChunks := int(duration) / chunkDuration
 	numChunks++
+	fmt.Printf("Splitting video into %d chunks\n", numChunks)
 	// Split the video into chunks
 	for i := 0; i < numChunks; i++ {
 		startTime := i * chunkDuration
@@ -58,6 +59,8 @@ func splitVideo(inputPath, outputPath, probePath string, chunkDuration int) erro
 		if err != nil {
 			return err
 		}
+		fmt.Printf("Chunk %d/%d done\n", i+1, numChunks)
 	}
+	fmt.Printf("Done splitting video into %d chunks\n", numChunks)
 	return nil
 }
