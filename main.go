@@ -52,7 +52,7 @@ func splitVideo(inputPath, outputPath, probePath string, chunkDuration int) erro
 	for i := 0; i < numChunks; i++ {
 		startTime := i * chunkDuration
 		fileName := filepath.Base(inputPath)
-		outputFilename := fmt.Sprintf("%s_%d.mp4", strings.TrimSuffix(fileName, filepath.Ext(fileName)), i)
+		outputFilename := fmt.Sprintf("%s_%d.mp4", strings.TrimSuffix(fileName, filepath.Ext(fileName)), i+1)
 		outputPath := filepath.Join(outputPath, outputFilename)
 
 		cmd := exec.Command(probePath+"ffmpeg.exe", "-ss", fmt.Sprintf("%d", startTime), "-i", inputPath, "-t", fmt.Sprintf("%d", chunkDuration), "-c", "copy", outputPath)
