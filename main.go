@@ -10,7 +10,7 @@ import (
 )
 
 func main() {
-	inputPath := "video.mp4"
+	inputPath := "videos/NanatsunoMakengaShihaisuru_7.mp4"
 	outputPath := "output"
 	chunkDuration := 180 // 3 minutes
 	probePath := "ffmpeg-master-latest-win64-gpl/bin/"
@@ -51,7 +51,8 @@ func splitVideo(inputPath, outputPath, probePath string, chunkDuration int) erro
 	// Split the video into chunks
 	for i := 0; i < numChunks; i++ {
 		startTime := i * chunkDuration
-		outputFilename := fmt.Sprintf("chunk_%d.mp4", i)
+		fileName := filepath.Base(inputPath)
+		outputFilename := fmt.Sprintf("%s_%d.mp4", strings.TrimSuffix(fileName, filepath.Ext(fileName)), i)
 		outputPath := filepath.Join(outputPath, outputFilename)
 
 		cmd := exec.Command(probePath+"ffmpeg.exe", "-ss", fmt.Sprintf("%d", startTime), "-i", inputPath, "-t", fmt.Sprintf("%d", chunkDuration), "-c", "copy", outputPath)
