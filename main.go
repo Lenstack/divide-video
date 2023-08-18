@@ -12,7 +12,7 @@ import (
 func main() {
 	inputPath := "video.mp4"
 	outputPath := "output"
-	chunkDuration := 300 // 5 minutes
+	chunkDuration := 180 // 3 minutes
 	probePath := "ffmpeg-master-latest-win64-gpl/bin/"
 
 	err := splitVideo(inputPath, outputPath, probePath, chunkDuration)
@@ -43,10 +43,10 @@ func splitVideo(inputPath, outputPath, probePath string, chunkDuration int) erro
 	if err != nil {
 		return err
 	}
-
+	fmt.Println(duration)
 	// Calculate the number of chunks
 	numChunks := int(duration) / chunkDuration
-
+	numChunks++
 	// Split the video into chunks
 	for i := 0; i < numChunks; i++ {
 		startTime := i * chunkDuration
