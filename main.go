@@ -28,7 +28,7 @@ func main() {
 	videoDivider := VideoDivider{
 		inputVideoPath:  "videos/DarkGathering_8.mp4",
 		outputVideoPath: "output",
-		mutedVideoPath:  "muted",
+		mutedVideoPath:  "",
 		chunkDuration:   "00:03:00",
 		ffPath:          "ffmpeg-master-latest-win64-gpl/bin",
 		timeRangesToMute: []TimeRange{
@@ -80,7 +80,7 @@ func (v *VideoDivider) DivideVideo() {
 		// Execute ffmpeg command to divide video
 		cmd := v.ExecuteFFCommand("ffmpeg.exe", []string{
 			"-ss", fmt.Sprintf("%d", startTime),
-			"-i", v.inputVideoPath,
+			"-i", v.mutedVideoPath,
 			"-t", fmt.Sprintf("%d", chunkDuration),
 			"-c", "copy",
 			filepath.Join(v.outputVideoPath, fileName),
@@ -100,6 +100,7 @@ func (v *VideoDivider) DivideVideo() {
 	if err != nil {
 		log.Fatalf("Error deleting muted video: %v", err)
 	}
+	log.Printf("Deleted muted video from output folder")
 }
 
 func (v *VideoDivider) MuteVideo() {
@@ -114,7 +115,7 @@ func (v *VideoDivider) MuteVideo() {
 			"-c:v", "copy",
 			"-c:a", "aac",
 			"-strict", "-2",
-			filepath.Join(v.outputVideoPath, "Muted_"+filepath.Base(v.inputVideoPath))})
+			filepath.Join(v.outputVideoPath, "muted_"+filepath.Base(v.inputVideoPath))})
 
 		// Execute command and check for errors
 		err := cmd.Run()
@@ -124,6 +125,8 @@ func (v *VideoDivider) MuteVideo() {
 
 		log.Printf("Muted video from %v to %v", timeRange.StartTime, timeRange.EndTime)
 	}
+
+	v.mutedVideoPath = filepath.Join(v.outputVideoPath, "muted_"+filepath.Base(v.inputVideoPath))
 }
 
 func (v *VideoDivider) ConvertDurationToSeconds(duration string) (int, error) {
@@ -211,9 +214,10 @@ func (v *VideoDivider) DeleteMutedVideoFolder() error {
 }
 
 func (v *VideoDivider) DeleteMutedVideo() error {
-	// Check if output folder exists and delete if exists
-	if _, err := os.Stat(filepath.Join(v.outputVideoPath, "muted_"+filepath.Base(v.inputVideoPath))); os.IsExist(err) {
-		err := os.Remove(filepath.Join(v.outputVideoPath, "muted_"+filepath.Base(v.inputVideoPath)))
+	// Check if the muted video file exists
+	if _, err := os.Stat(v.mutedVideoPath); err == nil {
+		// Delete the muted video file
+		err := os.Remove(v.mutedVideoPath)
 		if err != nil {
 			return err
 		}
