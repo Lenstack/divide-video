@@ -67,6 +67,7 @@ func (v *VideoDivider) DivideVideo() {
 
 	// Calculate number of chunks
 	numChunks := int(duration) / chunkDuration
+	numChunks++
 	log.Printf("Number of chunks: %v", numChunks)
 
 	// Divide video into chunks and save to output folder
