@@ -104,33 +104,49 @@ func (v *VideoDivider) DivideVideo() {
 }
 
 func (v *VideoDivider) MuteVideo() {
-	if len(v.timeRangesToMute) > 0 {
-		log.Printf("Muting video in %d time ranges", len(v.timeRangesToMute))
-		for _, timeRange := range v.timeRangesToMute {
-			// Convert time range to seconds
-			startTime, _ := v.ConvertDurationToSeconds(timeRange.StartTime)
-			endTime, _ := v.ConvertDurationToSeconds(timeRange.EndTime)
-
-			// Execute ffmpeg command to mute video in time range
-			cmd := v.ExecuteFFCommand("ffmpeg.exe", []string{
-				"-i", v.inputVideoPath,
-				"-af", fmt.Sprintf("volume=enable='between(t,%d,%d)':volume=0", startTime, endTime),
-				"-c:v", "copy",
-				"-c:a", "aac",
-				"-strict", "-2",
-				filepath.Join(v.outputVideoPath, "muted_"+filepath.Base(v.inputVideoPath))})
-
-			// Execute command and check for errors
-			err := cmd.Run()
-			if err != nil {
-				log.Fatalf("Error muting video: %v", err)
-			}
-			log.Printf("Muted video from %v to %v", timeRange.StartTime, timeRange.EndTime)
-		}
-	} else {
-		v.mutedVideoPath = v.inputVideoPath
+	if len(v.timeRangesToMute) == 0 {
+		v.outputVideoPath = v.inputVideoPath
 		log.Printf("No time ranges to mute")
+		return
 	}
+
+	// Build the audio filter argument
+	var audioFilterParts []string
+	for _, timeRange := range v.timeRangesToMute {
+		// Convert start time and end time to seconds
+		startSeconds, err := v.ConvertDurationToSeconds(timeRange.StartTime)
+		if err != nil {
+			log.Fatalf("Error converting start time: %v", err)
+		}
+		endSeconds, err := v.ConvertDurationToSeconds(timeRange.EndTime)
+		if err != nil {
+			log.Fatalf("Error converting end time: %v", err)
+		}
+		// Add the audio filter part to the list
+		audioFilterParts = append(audioFilterParts, fmt.Sprintf("volume=enable='between(t,%d,%d)':volume=0 ", startSeconds, endSeconds))
+	}
+
+	audioFilter := strings.Join(audioFilterParts, ",")
+	fmt.Printf("Audio filter: %v\n", audioFilter)
+
+	log.Printf("Muting video in specified time ranges ...")
+	// Execute ffmpeg command to mute video in specified time ranges
+	cmd := v.ExecuteFFCommand("ffmpeg", []string{
+		"-i", v.inputVideoPath,
+		"-af", audioFilter,
+		"-c:v", "copy",
+		"-c:a", "aac",
+		"-strict", "-2",
+		filepath.Join(v.outputVideoPath, "muted_"+filepath.Base(v.inputVideoPath)),
+	})
+
+	// Execute command and check for errors
+	err := cmd.Run()
+	if err != nil {
+		log.Fatalf("Error muting video: %v", err)
+	}
+
+	log.Printf("The video has been muted successfully")
 }
 
 func (v *VideoDivider) ConvertDurationToSeconds(duration string) (int, error) {
