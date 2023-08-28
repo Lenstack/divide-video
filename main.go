@@ -10,122 +10,124 @@ import (
 	"strings"
 )
 
-var (
-	inputPath        = "videos/DarkGathering_8.mp4"
-	outputPath       = "output"
-	mutedInputPath   = ""
-	chunkDuration    = 180 // 3 minutes
-	probePath        = "ffmpeg-master-latest-win64-gpl/bin/"
-	timeRangesToMute = []TimeRange{
-		{StartTime: "00:00:10", EndTime: "00:01:00"},
-	}
-)
-
 type TimeRange struct {
 	StartTime string
 	EndTime   string
 }
 
+type VideoDivider struct {
+	inputVideoPath   string
+	outputVideoPath  string
+	mutedVideoPath   string
+	chunkDuration    string
+	ffPath           string
+	timeRangesToMute []TimeRange
+}
+
 func main() {
-	// Split the video into chunks
-	err := splitAndMuteVideo(inputPath, outputPath, probePath, chunkDuration, timeRangesToMute)
+	videoDivider := VideoDivider{
+		inputVideoPath:  "videos/DarkGathering_8.mp4",
+		outputVideoPath: "output",
+		mutedVideoPath:  "muted",
+		chunkDuration:   "00:03:00",
+		ffPath:          "ffmpeg-master-latest-win64-gpl/bin",
+		timeRangesToMute: []TimeRange{
+			{StartTime: "00:01:53", EndTime: "00:03:22"},
+			{StartTime: "00:21:51", EndTime: "00:23:20"},
+		},
+	}
+	videoDivider.ProcessVideo()
+}
+
+func (v *VideoDivider) ProcessVideo() {
+	v.MuteVideo()
+	v.DivideVideo()
+}
+
+func (v *VideoDivider) DivideVideo() {
+	// Get video duration
+	duration, err := v.GetVideoDuration()
 	if err != nil {
-		log.Fatal(err)
+		log.Fatalf("Error getting video duration: %v", err)
+	}
+	log.Printf("Video duration: %v", duration)
+
+	// Create output folder
+	err = v.CreateOutputFolder()
+	if err != nil {
+		log.Fatalf("Error creating output folder: %v", err)
+	}
+
+	// Convert chunk duration to seconds
+	chunkDuration, err := v.ConvertDurationToSeconds(v.chunkDuration)
+	if err != nil {
+		log.Fatalf("Error converting chunk duration: %v", err)
+	}
+	log.Printf("Chunk duration: %v", chunkDuration)
+
+	// Calculate number of chunks
+	numChunks := int(duration) / chunkDuration
+	log.Printf("Number of chunks: %v", numChunks)
+
+	// Divide video into chunks and save to output folder
+	for i := 0; i < numChunks; i++ {
+		// Calculate start time and end time
+		startTime := i * chunkDuration
+
+		// Create file name for chunk
+		fileName := fmt.Sprintf("%s_%d.mp4", strings.TrimSuffix(filepath.Base(v.inputVideoPath), filepath.Ext(v.inputVideoPath)), i+1)
+
+		// Execute ffmpeg command to divide video
+		cmd := v.ExecuteFFCommand("ffmpeg.exe", []string{
+			"-ss", fmt.Sprintf("%d", startTime),
+			"-i", v.inputVideoPath,
+			"-t", fmt.Sprintf("%d", chunkDuration),
+			"-c", "copy",
+			filepath.Join(v.outputVideoPath, fileName),
+		})
+
+		// Execute command and check for errors
+		err = cmd.Run()
+		if err != nil {
+			log.Fatalf("Error dividing video: %v", err)
+		}
+
+		log.Printf("Chunk %d/%d done\n", i+1, numChunks)
+	}
+
+	// Delete muted video from output folder if exists
+	err = v.DeleteMutedVideo()
+	if err != nil {
+		log.Fatalf("Error deleting muted video: %v", err)
 	}
 }
 
-func splitAndMuteVideo(inputPath, outputPath, probePath string, chunkDuration int, timeRangesToMute []TimeRange) error {
-	// Create output directory if it doesn't exist
-	if _, err := os.Stat(outputPath); os.IsNotExist(err) {
-		err := os.Mkdir(outputPath, 0755)
-		if err != nil {
-			return err
-		}
-	}
+func (v *VideoDivider) MuteVideo() {
+	log.Printf("Muting video in %d time ranges", len(v.timeRangesToMute))
+	for _, timeRange := range v.timeRangesToMute {
+		startTime, _ := v.ConvertDurationToSeconds(timeRange.StartTime)
+		endTime, _ := v.ConvertDurationToSeconds(timeRange.EndTime)
 
-	// Get video duration using ffprobe
-	cmd := exec.Command(probePath+"ffprobe.exe", "-v", "error", "-show_entries", "format=duration", "-of", "default=noprint_wrappers=1:nokey=1", inputPath)
-	durationOutput, err := cmd.CombinedOutput()
-	if err != nil {
-		return err
-	}
+		cmd := v.ExecuteFFCommand("ffmpeg.exe", []string{
+			"-i", v.inputVideoPath,
+			"-af", fmt.Sprintf("volume=enable='between(t,%d,%d)':volume=0", startTime, endTime),
+			"-c:v", "copy",
+			"-c:a", "aac",
+			"-strict", "-2",
+			filepath.Join(v.outputVideoPath, "Muted_"+filepath.Base(v.inputVideoPath))})
 
-	// Convert duration output to float64
-	durationStr := strings.TrimSpace(string(durationOutput))
-	var duration float64
-	_, err = fmt.Sscanf(durationStr, "%f", &duration)
-	if err != nil {
-		return err
-	}
-	fmt.Printf("Video duration: %f\n", duration)
-
-	// Calculate the number of chunks
-	numChunks := int(duration) / chunkDuration
-	numChunks++
-	fmt.Printf("Splitting video into %d chunks\n", numChunks)
-
-	// Validate if the video needs to be muted
-	if len(timeRangesToMute) > 0 {
-		// Mute the video in the specified time ranges
-		fmt.Printf("Muting video in %d time ranges\n", len(timeRangesToMute))
-		for _, timeRange := range timeRangesToMute {
-			// Convert time range to seconds
-			startTime, err := convertDurationToSeconds(timeRange.StartTime)
-			if err != nil {
-				log.Fatal(err)
-			}
-			endTime, err := convertDurationToSeconds(timeRange.EndTime)
-			if err != nil {
-				log.Fatal(err)
-			}
-
-			cmd := exec.Command(probePath+"ffmpeg.exe", "-i", inputPath, "-af", fmt.Sprintf("volume=enable='between(t,%d,%d)':volume=0", startTime, endTime), "-c:v", "copy", "-c:a", "aac", "-strict", "-2", filepath.Join(outputPath, "muted_"+filepath.Base(inputPath)))
-			err = cmd.Run()
-			if err != nil {
-				return err
-			}
-			fmt.Printf("Muted video from %d to %d\n", timeRange.StartTime, timeRange.EndTime)
-		}
-
-		// Set the muted input path
-		mutedInputPath = filepath.Join(outputPath, "muted_"+filepath.Base(inputPath))
-
-		fmt.Printf("Muting video in %d time ranges\n", len(timeRangesToMute))
-	} else {
-		mutedInputPath = inputPath
-		fmt.Println("No time ranges to mute")
-	}
-
-	// Split the video into chunks
-	for i := 0; i < numChunks; i++ {
-		startTime := i * chunkDuration
-		fileName := filepath.Base(inputPath)
-		outputFilename := fmt.Sprintf("%s_%d.mp4", strings.TrimSuffix(fileName, filepath.Ext(fileName)), i+1)
-		outputPath := filepath.Join(outputPath, outputFilename)
-
-		cmd := exec.Command(probePath+"ffmpeg.exe", "-ss", fmt.Sprintf("%d", startTime), "-i", mutedInputPath, "-t", fmt.Sprintf("%d", chunkDuration), "-c", "copy", outputPath)
+		// Execute command and check for errors
 		err := cmd.Run()
 		if err != nil {
-			return err
+			log.Fatalf("Error muting video: %v", err)
 		}
-		fmt.Printf("Chunk %d/%d done\n", i+1, numChunks)
-	}
 
-	// Delete the muted video file if it exists
-	if _, err := os.Stat(filepath.Join(outputPath, "muted_"+filepath.Base(inputPath))); !os.IsNotExist(err) {
-		err := os.Remove(filepath.Join(outputPath, "muted_"+filepath.Base(inputPath)))
-		if err != nil {
-			return err
-		}
+		log.Printf("Muted video from %v to %v", timeRange.StartTime, timeRange.EndTime)
 	}
-
-	fmt.Println("Deleted muted video")
-	fmt.Printf("Done splitting video into %d chunks\n", numChunks)
-	return nil
 }
 
-func convertDurationToSeconds(durationStr string) (int, error) {
-	parts := strings.Split(durationStr, ":")
+func (v *VideoDivider) ConvertDurationToSeconds(duration string) (int, error) {
+	parts := strings.Split(duration, ":")
 	if len(parts) != 3 {
 		return 0, fmt.Errorf("invalid duration format")
 	}
@@ -147,4 +149,74 @@ func convertDurationToSeconds(durationStr string) (int, error) {
 
 	totalSeconds := hours*3600 + minutes*60 + seconds
 	return totalSeconds, nil
+}
+
+func (v *VideoDivider) ExecuteFFCommand(executable string, args []string) *exec.Cmd {
+	// Create command to execute
+	return exec.Command(filepath.Join(v.ffPath, executable), args...)
+}
+
+func (v *VideoDivider) GetVideoDuration() (float64, error) {
+	// Execute ffprobe command to get duration
+	cmd := v.ExecuteFFCommand("ffprobe.exe", []string{"-v", "error", "-show_entries", "format=duration", "-of", "default=noprint_wrappers=1:nokey=1", v.inputVideoPath})
+
+	// Get duration output from command
+	durationOutput, err := cmd.CombinedOutput()
+	if err != nil {
+		log.Fatalf("Error getting video duration: %v", err)
+	}
+
+	// Convert duration output to float64
+	durationStr := strings.TrimSpace(string(durationOutput))
+	var duration float64
+	_, err = fmt.Sscanf(durationStr, "%f", &duration)
+	if err != nil {
+		log.Fatalf("Error converting duration to float64: %v", err)
+	}
+
+	return duration, nil
+}
+
+func (v *VideoDivider) CreateOutputFolder() error {
+	// Check if output folder exists and create if not exists
+	if _, err := os.Stat(v.outputVideoPath); os.IsNotExist(err) {
+		err := os.Mkdir(v.outputVideoPath, 0755)
+		if err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func (v *VideoDivider) CreateMutedVideoFolder() error {
+	// Check if output folder exists and create if not exists
+	if _, err := os.Stat(v.mutedVideoPath); os.IsNotExist(err) {
+		err := os.Mkdir(v.mutedVideoPath, 0755)
+		if err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func (v *VideoDivider) DeleteMutedVideoFolder() error {
+	// Check if output folder exists and delete if exists
+	if _, err := os.Stat(v.mutedVideoPath); os.IsExist(err) {
+		err := os.RemoveAll(v.mutedVideoPath)
+		if err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func (v *VideoDivider) DeleteMutedVideo() error {
+	// Check if output folder exists and delete if exists
+	if _, err := os.Stat(filepath.Join(v.outputVideoPath, "muted_"+filepath.Base(v.inputVideoPath))); os.IsExist(err) {
+		err := os.Remove(filepath.Join(v.outputVideoPath, "muted_"+filepath.Base(v.inputVideoPath)))
+		if err != nil {
+			return err
+		}
+	}
+	return nil
 }
