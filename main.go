@@ -41,7 +41,7 @@ func main() {
 
 func (v *VideoDivider) ProcessVideo() {
 	v.MuteVideo()
-	v.DivideVideo()
+	//v.DivideVideo()
 }
 
 func (v *VideoDivider) DivideVideo() {
@@ -104,29 +104,33 @@ func (v *VideoDivider) DivideVideo() {
 }
 
 func (v *VideoDivider) MuteVideo() {
-	log.Printf("Muting video in %d time ranges", len(v.timeRangesToMute))
-	for _, timeRange := range v.timeRangesToMute {
-		startTime, _ := v.ConvertDurationToSeconds(timeRange.StartTime)
-		endTime, _ := v.ConvertDurationToSeconds(timeRange.EndTime)
+	if len(v.timeRangesToMute) > 0 {
+		log.Printf("Muting video in %d time ranges", len(v.timeRangesToMute))
+		for _, timeRange := range v.timeRangesToMute {
+			// Convert time range to seconds
+			startTime, _ := v.ConvertDurationToSeconds(timeRange.StartTime)
+			endTime, _ := v.ConvertDurationToSeconds(timeRange.EndTime)
 
-		cmd := v.ExecuteFFCommand("ffmpeg.exe", []string{
-			"-i", v.inputVideoPath,
-			"-af", fmt.Sprintf("volume=enable='between(t,%d,%d)':volume=0", startTime, endTime),
-			"-c:v", "copy",
-			"-c:a", "aac",
-			"-strict", "-2",
-			filepath.Join(v.outputVideoPath, "muted_"+filepath.Base(v.inputVideoPath))})
+			// Execute ffmpeg command to mute video in time range
+			cmd := v.ExecuteFFCommand("ffmpeg.exe", []string{
+				"-i", v.inputVideoPath,
+				"-af", fmt.Sprintf("volume=enable='between(t,%d,%d)':volume=0", startTime, endTime),
+				"-c:v", "copy",
+				"-c:a", "aac",
+				"-strict", "-2",
+				filepath.Join(v.outputVideoPath, "muted_"+filepath.Base(v.inputVideoPath))})
 
-		// Execute command and check for errors
-		err := cmd.Run()
-		if err != nil {
-			log.Fatalf("Error muting video: %v", err)
+			// Execute command and check for errors
+			err := cmd.Run()
+			if err != nil {
+				log.Fatalf("Error muting video: %v", err)
+			}
+			log.Printf("Muted video from %v to %v", timeRange.StartTime, timeRange.EndTime)
 		}
-
-		log.Printf("Muted video from %v to %v", timeRange.StartTime, timeRange.EndTime)
+	} else {
+		v.mutedVideoPath = v.inputVideoPath
+		log.Printf("No time ranges to mute")
 	}
-
-	v.mutedVideoPath = filepath.Join(v.outputVideoPath, "muted_"+filepath.Base(v.inputVideoPath))
 }
 
 func (v *VideoDivider) ConvertDurationToSeconds(duration string) (int, error) {
