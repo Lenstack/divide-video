@@ -6,21 +6,24 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strconv"
 	"strings"
 )
 
 var (
-	inputPath        = "videos/Mononogatari2ndSeason_8.mp4"
+	inputPath        = "videos/DarkGathering_8.mp4"
 	outputPath       = "output"
 	mutedInputPath   = ""
 	chunkDuration    = 180 // 3 minutes
 	probePath        = "ffmpeg-master-latest-win64-gpl/bin/"
-	timeRangesToMute = []TimeRange{}
+	timeRangesToMute = []TimeRange{
+		{StartTime: "00:00:10", EndTime: "00:01:00"},
+	}
 )
 
 type TimeRange struct {
-	StartTime int
-	EndTime   int
+	StartTime string
+	EndTime   string
 }
 
 func main() {
@@ -66,8 +69,18 @@ func splitAndMuteVideo(inputPath, outputPath, probePath string, chunkDuration in
 		// Mute the video in the specified time ranges
 		fmt.Printf("Muting video in %d time ranges\n", len(timeRangesToMute))
 		for _, timeRange := range timeRangesToMute {
-			cmd := exec.Command(probePath+"ffmpeg.exe", "-i", inputPath, "-af", fmt.Sprintf("volume=enable='between(t,%d,%d)':volume=0", timeRange.StartTime, timeRange.EndTime), "-c:v", "copy", "-c:a", "aac", "-strict", "-2", filepath.Join(outputPath, "muted_"+filepath.Base(inputPath)))
-			err := cmd.Run()
+			// Convert time range to seconds
+			startTime, err := convertDurationToSeconds(timeRange.StartTime)
+			if err != nil {
+				log.Fatal(err)
+			}
+			endTime, err := convertDurationToSeconds(timeRange.EndTime)
+			if err != nil {
+				log.Fatal(err)
+			}
+
+			cmd := exec.Command(probePath+"ffmpeg.exe", "-i", inputPath, "-af", fmt.Sprintf("volume=enable='between(t,%d,%d)':volume=0", startTime, endTime), "-c:v", "copy", "-c:a", "aac", "-strict", "-2", filepath.Join(outputPath, "muted_"+filepath.Base(inputPath)))
+			err = cmd.Run()
 			if err != nil {
 				return err
 			}
@@ -109,4 +122,24 @@ func splitAndMuteVideo(inputPath, outputPath, probePath string, chunkDuration in
 	fmt.Println("Deleted muted video")
 	fmt.Printf("Done splitting video into %d chunks\n", numChunks)
 	return nil
+}
+
+func convertDurationToSeconds(durationStr string) (int, error) {
+	parts := strings.Split(durationStr, ":")
+	if len(parts) != 3 {
+		return 0, fmt.Errorf("invalid duration format")
+	}
+
+	totalSeconds := 0
+	multipliers := []int{3600, 60, 1}
+
+	for i, part := range parts {
+		value, err := strconv.Atoi(part)
+		if err != nil {
+			return 0, err
+		}
+		totalSeconds += value * multipliers[i]
+	}
+
+	return totalSeconds, nil
 }
