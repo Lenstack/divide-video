@@ -10,15 +10,12 @@ import (
 )
 
 var (
-	inputPath        = "videos/DarkGathering_8.mp4"
+	inputPath        = "videos/Mononogatari2ndSeason_8.mp4"
 	outputPath       = "output"
-	mutedInputPath   string
+	mutedInputPath   = ""
 	chunkDuration    = 180 // 3 minutes
 	probePath        = "ffmpeg-master-latest-win64-gpl/bin/"
-	timeRangesToMute = []TimeRange{
-		{StartTime: 130, EndTime: 200},
-		{StartTime: 1320, EndTime: 1380},
-	}
+	timeRangesToMute = []TimeRange{}
 )
 
 type TimeRange struct {
@@ -101,10 +98,12 @@ func splitAndMuteVideo(inputPath, outputPath, probePath string, chunkDuration in
 		fmt.Printf("Chunk %d/%d done\n", i+1, numChunks)
 	}
 
-	// Delete the muted video
-	err = os.Remove(mutedInputPath)
-	if err != nil {
-		return err
+	// Delete the muted video file if it exists
+	if _, err := os.Stat(filepath.Join(outputPath, "muted_"+filepath.Base(inputPath))); !os.IsNotExist(err) {
+		err := os.Remove(filepath.Join(outputPath, "muted_"+filepath.Base(inputPath)))
+		if err != nil {
+			return err
+		}
 	}
 
 	fmt.Println("Deleted muted video")
