@@ -64,6 +64,7 @@ func splitAndMuteVideo(inputPath, outputPath, probePath string, chunkDuration in
 	numChunks++
 	fmt.Printf("Splitting video into %d chunks\n", numChunks)
 
+	// Validate if the video needs to be muted
 	if len(timeRangesToMute) > 0 {
 		// Mute the video in the specified time ranges
 		fmt.Printf("Muting video in %d time ranges\n", len(timeRangesToMute))
@@ -105,6 +106,8 @@ func splitAndMuteVideo(inputPath, outputPath, probePath string, chunkDuration in
 	if err != nil {
 		return err
 	}
+
+	fmt.Println("Deleted muted video")
 	fmt.Printf("Done splitting video into %d chunks\n", numChunks)
 	return nil
 }
