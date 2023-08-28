@@ -12,6 +12,7 @@ import (
 var (
 	inputPath        = "videos/DarkGathering_8.mp4"
 	outputPath       = "output"
+	mutedInputPath   string
 	chunkDuration    = 180 // 3 minutes
 	probePath        = "ffmpeg-master-latest-win64-gpl/bin/"
 	timeRangesToMute = []TimeRange{
@@ -63,19 +64,26 @@ func splitAndMuteVideo(inputPath, outputPath, probePath string, chunkDuration in
 	numChunks++
 	fmt.Printf("Splitting video into %d chunks\n", numChunks)
 
-	// Mute the video in the specified time ranges
-	fmt.Printf("Muting video in %d time ranges\n", len(timeRangesToMute))
-	for _, timeRange := range timeRangesToMute {
-		cmd := exec.Command(probePath+"ffmpeg.exe", "-i", inputPath, "-af", fmt.Sprintf("volume=enable='between(t,%d,%d)':volume=0", timeRange.StartTime, timeRange.EndTime), "-c:v", "copy", "-c:a", "aac", "-strict", "-2", filepath.Join(outputPath, "muted_"+filepath.Base(inputPath)))
-		err := cmd.Run()
-		if err != nil {
-			return err
+	if len(timeRangesToMute) > 0 {
+		// Mute the video in the specified time ranges
+		fmt.Printf("Muting video in %d time ranges\n", len(timeRangesToMute))
+		for _, timeRange := range timeRangesToMute {
+			cmd := exec.Command(probePath+"ffmpeg.exe", "-i", inputPath, "-af", fmt.Sprintf("volume=enable='between(t,%d,%d)':volume=0", timeRange.StartTime, timeRange.EndTime), "-c:v", "copy", "-c:a", "aac", "-strict", "-2", filepath.Join(outputPath, "muted_"+filepath.Base(inputPath)))
+			err := cmd.Run()
+			if err != nil {
+				return err
+			}
+			fmt.Printf("Muted video from %d to %d\n", timeRange.StartTime, timeRange.EndTime)
 		}
-		fmt.Printf("Muted video from %d to %d\n", timeRange.StartTime, timeRange.EndTime)
-	}
 
-	// Set the muted input path
-	mutedInputPath := filepath.Join(outputPath, "muted_"+filepath.Base(inputPath))
+		// Set the muted input path
+		mutedInputPath = filepath.Join(outputPath, "muted_"+filepath.Base(inputPath))
+
+		fmt.Printf("Muting video in %d time ranges\n", len(timeRangesToMute))
+	} else {
+		mutedInputPath = inputPath
+		fmt.Println("No time ranges to mute")
+	}
 
 	// Split the video into chunks
 	for i := 0; i < numChunks; i++ {
