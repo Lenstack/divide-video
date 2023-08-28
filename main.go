@@ -41,7 +41,7 @@ func main() {
 
 func (v *VideoDivider) ProcessVideo() {
 	v.MuteVideo()
-	//v.DivideVideo()
+	v.DivideVideo()
 }
 
 func (v *VideoDivider) DivideVideo() {
@@ -125,7 +125,7 @@ func (v *VideoDivider) MuteVideo() {
 		// Add the audio filter part to the list
 		audioFilterParts = append(audioFilterParts, fmt.Sprintf("volume=enable='between(t,%d,%d)':volume=0 ", startSeconds, endSeconds))
 	}
-	
+
 	// Join the audio filter parts with comma
 	audioFilter := strings.Join(audioFilterParts, ",")
 
@@ -146,6 +146,8 @@ func (v *VideoDivider) MuteVideo() {
 		log.Fatalf("Error muting video: %v", err)
 	}
 
+	// Set muted video path to output video path
+	v.mutedVideoPath = filepath.Join(v.outputVideoPath, "muted_"+filepath.Base(v.inputVideoPath))
 	log.Printf("The video has been muted successfully")
 }
 
