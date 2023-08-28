@@ -125,9 +125,9 @@ func (v *VideoDivider) MuteVideo() {
 		// Add the audio filter part to the list
 		audioFilterParts = append(audioFilterParts, fmt.Sprintf("volume=enable='between(t,%d,%d)':volume=0 ", startSeconds, endSeconds))
 	}
-
+	
+	// Join the audio filter parts with comma
 	audioFilter := strings.Join(audioFilterParts, ",")
-	fmt.Printf("Audio filter: %v\n", audioFilter)
 
 	log.Printf("Muting video in specified time ranges ...")
 	// Execute ffmpeg command to mute video in specified time ranges
