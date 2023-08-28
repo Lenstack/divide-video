@@ -11,7 +11,6 @@ import (
 
 var (
 	inputPath        = "videos/DarkGathering_8.mp4"
-	mutedInputPath   = ""
 	outputPath       = "output"
 	chunkDuration    = 180 // 3 minutes
 	probePath        = "ffmpeg-master-latest-win64-gpl/bin/"
@@ -76,7 +75,7 @@ func splitAndMuteVideo(inputPath, outputPath, probePath string, chunkDuration in
 	}
 
 	// Set the muted input path
-	mutedInputPath = filepath.Join(outputPath, "muted_"+filepath.Base(inputPath))
+	mutedInputPath := filepath.Join(outputPath, "muted_"+filepath.Base(inputPath))
 
 	// Split the video into chunks
 	for i := 0; i < numChunks; i++ {
