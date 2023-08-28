@@ -130,16 +130,21 @@ func convertDurationToSeconds(durationStr string) (int, error) {
 		return 0, fmt.Errorf("invalid duration format")
 	}
 
-	totalSeconds := 0
-	multipliers := []int{3600, 60, 1}
-
-	for i, part := range parts {
-		value, err := strconv.Atoi(part)
-		if err != nil {
-			return 0, err
-		}
-		totalSeconds += value * multipliers[i]
+	hours, err := strconv.Atoi(parts[0])
+	if err != nil {
+		return 0, err
 	}
 
+	minutes, err := strconv.Atoi(parts[1])
+	if err != nil {
+		return 0, err
+	}
+
+	seconds, err := strconv.Atoi(parts[2])
+	if err != nil {
+		return 0, err
+	}
+
+	totalSeconds := hours*3600 + minutes*60 + seconds
 	return totalSeconds, nil
 }
